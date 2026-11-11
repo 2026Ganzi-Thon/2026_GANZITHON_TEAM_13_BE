@@ -28,6 +28,8 @@ INSTALLED_APPS = [
     "apps.places.apps.PlacesConfig",
     "apps.statistics.apps.StatisticsConfig",
     "apps.notifications.apps.NotificationsConfig",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
