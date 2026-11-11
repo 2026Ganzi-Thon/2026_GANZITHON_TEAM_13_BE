@@ -56,6 +56,20 @@ Invoke-RestMethod http://127.0.0.1:8000/api/health/
 - 인증 및 DB 조회 없이 애플리케이션 응답 여부만 확인합니다.
 - POST 등 지원하지 않는 메서드는 HTTP 405를 반환합니다.
 
+## 사용자 모델 및 데이터베이스 정책
+
+### 사용자 모델
+
+본 프로젝트는 Django 기본 사용자 모델인 `auth.User`를 사용한다.
+
+- 별도의 커스텀 User 모델을 생성하지 않는다.
+- `django.contrib.auth`와 `django.contrib.contenttypes`를 `INSTALLED_APPS`에 등록한다.
+- 사용자 정보는 Django 기본 `auth_user` 테이블에서 관리한다.
+- 사용자 모델을 참조할 때는 `settings.AUTH_USER_MODEL`을 사용한다.
+- `MissionSession.user_id`는 `auth_user.id`를 참조하는 외래 키(FK)로 설정한다.
+- Django 기본 `auth.User.id`는 기본적으로 INT이므로, 기존 DB 명세의 BIGINT와 차이가 있다. BIGINT 적용 여부는 마이그레이션 전에 확정한다.
+- 사용자 인증 및 API 요청에서의 사용자 식별 방식은 추후 구현한다.
+
 ## 구조
 
 ```text
@@ -172,7 +186,6 @@ GET이나 POST라는 이유만으로 파라미터 위치를 결정하지 않습�
 - 세션의 A/B 담당자는 각자 `actions.py`, `history.py`에서 구현합니다. 공유 `endpoints.py`와 `urls.py` 변경은 함께 검토합니다.
 - 공통 모델은 중복 작성하지 않습니다. 모델 소유 앱과 담당자를 먼저 합의하고 다른 앱에서는 해당 모델을 참조합니다.
 - `Mission`, `MissionSession`, `rest_records`, `NotificationSetting` 모델을 이번 단계에서 생성하지 않습니다. 기존 DB 설계와 API 명세를 임의로 바꾸지 않습니다.
-- User/AnonymousUser 모델이나 인증 방식은 별도 합의 전 결정하지 않습니다. 현재 공개 임시 응답 설정은 인증 설계의 확정을 의미하지 않습니다.
 - DB 생성, `makemigrations`, `migrate`는 이번 작업 범위에서 실행하지 않습니다. `.env`와 실제 비밀값은 공유하거나 Git에 포함하지 않습니다.
 
 ## DB 없는 로컬 검증
