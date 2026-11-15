@@ -1,5 +1,9 @@
+
+from unittest.mock import patch
+
 from django.test import SimpleTestCase
 from django.urls import Resolver404, URLResolver, get_resolver, resolve, reverse
+from rest_framework.response import Response
 from rest_framework.test import APIClient
 
 
@@ -21,23 +25,50 @@ ENDPOINTS = [
 ]
 
 
+# Implemented API operations.
+# Use both URL and HTTP method because /mission-sessions is shared.
+IMPLEMENTED_ENDPOINTS = {
+    ("/missions", "GET"),
+    ("/missions/random", "GET"),
+    ("/mission-sessions", "POST"),
+    ("/mission-sessions/example-id/complete", "POST"),
+    ("/mission-sessions/example-id/cancel", "POST"),
+}
+
+
 class ApiRoutingTests(SimpleTestCase):
-    # No test database is created; any database query fails this test class.
+    # No test database is created; database queries are prohibited.
     def setUp(self):
         self.client = APIClient()
 
     def test_all_16_operations_return_consistent_json_without_redirect(self):
-        self.assertEqual(sum(len(methods) for _, _, _, methods in ENDPOINTS), 16)
+        self.assertEqual(
+            sum(len(methods) for _, _, _, methods in ENDPOINTS),
+            16,
+        )
+
         for url, name, kwargs, methods in ENDPOINTS:
             for method in methods:
                 with self.subTest(method=method, url=url):
                     self.assertEqual(reverse(name, kwargs=kwargs), url)
                     self.assertEqual(resolve(url).view_name, name)
                     self.assertEqual(resolve(url).kwargs, kwargs)
+
+                    # Implemented APIs have separate behavior tests.
+                    if (url, method) in IMPLEMENTED_ENDPOINTS:
+                        continue
+
                     response = self.client.generic(method, url)
+
                     self.assertEqual(response.status_code, 501)
-                    self.assertEqual(response.json(), {"detail": "Not implemented yet"})
-                    self.assertEqual(response["Content-Type"], "application/json")
+                    self.assertEqual(
+                        response.json(),
+                        {"detail": "Not implemented yet"},
+                    )
+                    self.assertEqual(
+                        response["Content-Type"],
+                        "application/json",
+                    )
                     self.assertNotIn("Location", response)
 
     def test_unsupported_methods_return_405(self):
@@ -45,33 +76,59 @@ class ApiRoutingTests(SimpleTestCase):
             for method in {"GET", "POST", "PUT", "PATCH", "DELETE"} - methods:
                 with self.subTest(method=method, url=url):
                     response = self.client.generic(method, url)
+
                     self.assertEqual(response.status_code, 405)
-                    allowed = {item.strip() for item in response["Allow"].split(",")}
+
+                    allowed = {
+                        item.strip()
+                        for item in response["Allow"].split(",")
+                    }
+
                     self.assertTrue(methods <= allowed)
                     self.assertNotIn(method, allowed)
 
     def test_each_url_has_one_matching_pattern_for_all_its_methods(self):
-        # resolve() alone would hide duplicate patterns after the first match.
+        # resolve() alone would hide duplicate URL patterns.
         def matching_callbacks(patterns, remaining):
             matches = []
+
             for pattern in patterns:
                 matched = pattern.pattern.match(remaining)
+
                 if matched is None:
                     continue
+
                 tail, _, _ = matched
+
                 if isinstance(pattern, URLResolver):
-                    matches.extend(matching_callbacks(pattern.url_patterns, tail))
+                    matches.extend(
+                        matching_callbacks(
+                            pattern.url_patterns,
+                            tail,
+                        )
+                    )
                 elif not tail:
                     matches.append(pattern.callback)
+
             return matches
 
         for url, _, _, methods in ENDPOINTS:
             with self.subTest(url=url, methods=methods):
-                callbacks = matching_callbacks(get_resolver().url_patterns, url.lstrip("/"))
+                callbacks = matching_callbacks(
+                    get_resolver().url_patterns,
+                    url.lstrip("/"),
+                )
+
                 self.assertEqual(len(callbacks), 1)
                 self.assertIs(callbacks[0], resolve(url).func)
+
                 for method in methods:
-                    self.assertEqual(self.client.generic(method, url).status_code, 501)
+                    # Implemented APIs require their own tests.
+                    if (url, method) in IMPLEMENTED_ENDPOINTS:
+                        continue
+
+                    response = self.client.generic(method, url)
+                    self.assertEqual(response.status_code, 501)
 
     def test_trailing_slashes_and_api_prefix_are_not_aliases(self):
         for url, _, _, _ in ENDPOINTS:
@@ -79,15 +136,13 @@ class ApiRoutingTests(SimpleTestCase):
                 with self.subTest(url=invalid_url):
                     with self.assertRaises(Resolver404):
                         resolve(invalid_url)
+
                     response = self.client.get(invalid_url)
+
                     self.assertEqual(response.status_code, 404)
                     self.assertNotIn("Location", response)
 
     def test_sessions_dispatch_to_separate_owner_modules(self):
-        from unittest.mock import patch
-
-        from rest_framework.response import Response
-
         cases = [
             ("POST", "/mission-sessions", "actions.start"),
             ("POST", "/mission-sessions/42/complete", "actions.complete"),
@@ -95,9 +150,16 @@ class ApiRoutingTests(SimpleTestCase):
             ("GET", "/mission-sessions", "history.list_records"),
             ("DELETE", "/mission-sessions", "history.delete_records"),
         ]
+
         for method, url, handler in cases:
             with self.subTest(method=method, url=url):
                 with patch("apps.sessions.views." + handler) as mocked:
-                    mocked.return_value = Response({"detail": "Not implemented yet"}, status=501)
-                    self.assertEqual(self.client.generic(method, url).status_code, 501)
+                    mocked.return_value = Response(
+                        {"detail": "Not implemented yet"},
+                        status=501,
+                    )
+
+                    response = self.client.generic(method, url)
+
+                    self.assertEqual(response.status_code, 501)
                     mocked.assert_called_once()
