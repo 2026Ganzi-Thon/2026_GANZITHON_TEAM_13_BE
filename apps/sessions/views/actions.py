@@ -1,4 +1,6 @@
 
+from datetime import datetime, time, timedelta
+
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
@@ -116,15 +118,29 @@ def complete(request, sessionId):
         )
 
         # 4. 오늘 완료한 미션 개수
-        today = timezone.localdate(completed_at)
 
-        today_completed_count = (
-            MissionSession.objects.filter(
-                user=user,
-                status=MissionSession.Status.COMPLETED,
-                completed_at__date=today,
-            ).count()
-        )
+    today = timezone.localdate(completed_at)
+    local_timezone = timezone.get_current_timezone()
+
+    start_of_day = timezone.make_aware(
+        datetime.combine(today, time.min),
+        local_timezone,
+    )
+
+    end_of_day = timezone.make_aware(
+        datetime.combine(today + timedelta(days=1), time.min),
+        local_timezone,
+    )
+
+    today_completed_count = (
+        MissionSession.objects.filter(
+            user=user,
+            status=MissionSession.Status.COMPLETED,
+            completed_at__gte=start_of_day,
+            completed_at__lt=end_of_day,
+        ).count()
+    )
+
 
     # 5. 확정 명세에 맞춘 응답
     return Response(

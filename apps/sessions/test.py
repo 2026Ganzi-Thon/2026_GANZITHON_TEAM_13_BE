@@ -1,5 +1,5 @@
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -219,7 +219,18 @@ class MissionCompleteTests(SimpleTestCase):
             filter_arguments["status"],
             "COMPLETED",
         )
-        self.assertIn("completed_at__date", filter_arguments)
+
+        self.assertIn("completed_at__gte", filter_arguments)
+        self.assertIn("completed_at__lt", filter_arguments)
+
+        start_of_day = filter_arguments["completed_at__gte"]
+        end_of_day = filter_arguments["completed_at__lt"]
+
+        self.assertLess(start_of_day, end_of_day)
+        self.assertEqual(
+            start_of_day.date(),
+            end_of_day.date() - timedelta(days=1),
+        )
 
 
 class MissionCancelTests(SimpleTestCase):
