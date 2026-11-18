@@ -31,6 +31,8 @@ IMPLEMENTED_ENDPOINTS = {
     ("/missions", "GET"),
     ("/missions/random", "GET"),
     ("/mission-sessions", "POST"),
+    ("/mission-sessions", "GET"),
+    ("/mission-sessions", "DELETE"),
     ("/mission-sessions/example-id/complete", "POST"),
     ("/mission-sessions/example-id/cancel", "POST"),
 }
