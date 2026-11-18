@@ -38,6 +38,7 @@ IMPLEMENTED_ENDPOINTS = {
     ("/mission-sessions", "POST"),
     ("/mission-sessions/example-id/complete", "POST"),
     ("/mission-sessions/example-id/cancel", "POST"),
+    ("/statistics/summary", "GET"),
 }
 
 
