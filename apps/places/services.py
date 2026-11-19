@@ -13,7 +13,15 @@ from urllib.request import Request, urlopen
 
 
 SEARCH_URL = "https://dapi.kakao.com/v2/local/search/keyword.json"
-KEYWORDS = ("공원", "산책로")
+DEFAULT_KEYWORDS = ("공원", "산책로")
+# Only these seeded missions need a place search.
+MISSION_KEYWORDS = {
+    11: DEFAULT_KEYWORDS,
+    12: ("편의점",),
+    13: ("도서관",),
+    17: ("공원",),
+    18: ("공원",),
+}
 REQUEST_TIMEOUT_SECONDS = 3
 MAX_RESULTS = 5
 
@@ -104,13 +112,17 @@ def _normalize(document):
     }
 
 
-def recommend_places(latitude, longitude, radius=500):
+def recommend_places(latitude, longitude, radius=500, *, mission_id=None):
+    keywords = DEFAULT_KEYWORDS if mission_id is None else MISSION_KEYWORDS.get(mission_id, ())
+    if not keywords:
+        return []
+
     api_key = os.getenv("KAKAO_REST_API_KEY", "").strip()
     if not api_key:
         raise MissingAPIKey()
 
     places = {}
-    for keyword in KEYWORDS:
+    for keyword in keywords:
         for document in _search(keyword, latitude, longitude, radius, api_key):
             place = _normalize(document)
             if place["distanceMeters"] > radius:
