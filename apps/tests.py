@@ -28,6 +28,7 @@ ENDPOINTS = [
 # Implemented API operations.
 # Use both URL and HTTP method because /mission-sessions is shared.
 IMPLEMENTED_ENDPOINTS = {
+    ("/places/recommendations", "GET"),
     ("/missions", "GET"),
     ("/missions/random", "GET"),
     ("/mission-sessions", "POST"),
