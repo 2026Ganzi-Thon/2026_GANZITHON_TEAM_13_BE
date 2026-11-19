@@ -21,7 +21,6 @@ ALLOWED_HOSTS = [
 
 INSTALLED_APPS = [
     "rest_framework",
-    "apps.anonymous_auth",
     "health.apps.HealthConfig",
     "apps.missions.apps.MissionsConfig",
     "apps.sessions.apps.SessionsConfig",

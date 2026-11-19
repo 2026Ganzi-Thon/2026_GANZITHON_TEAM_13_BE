@@ -2,7 +2,6 @@ from datetime import timedelta
 from zoneinfo import ZoneInfo
 
 from django.utils import timezone
-from rest_framework.exceptions import NotAuthenticated
 from rest_framework.response import Response
 
 from apps.sessions.models import MissionSession
@@ -30,7 +29,7 @@ def _serialize_datetime(value):
 def list_records(request):
     user = getattr(request, "user", None)
     if user is None or not user.is_authenticated:
-        raise NotAuthenticated("Authentication required.")
+        return Response({"detail": "Authentication required."}, status=401)
 
     session_status = request.query_params.get("status")
     period = request.query_params.get("period")
@@ -64,7 +63,7 @@ def list_records(request):
 def delete_records(request):
     user = getattr(request, "user", None)
     if user is None or not user.is_authenticated:
-        raise NotAuthenticated("Authentication required.")
+        return Response({"detail": "Authentication required."}, status=401)
 
     MissionSession.objects.filter(user=user).delete()
     return Response(status=204)
