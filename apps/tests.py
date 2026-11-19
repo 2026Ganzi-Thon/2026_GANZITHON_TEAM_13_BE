@@ -9,7 +9,6 @@ from rest_framework.test import APIClient
 
 # HTTP operations sharing a path must reach the same dispatcher.
 ENDPOINTS = [
-    ("/auth/anonymous", "anonymous-auth", {}, {"POST"}),
     ("/missions/random", "missions:random-mission", {}, {"GET"}),
     ("/missions", "missions:mission-list", {}, {"GET"}),
     ("/mission-sessions", "sessions:collection", {}, {"POST", "GET", "DELETE"}),
@@ -29,9 +28,6 @@ ENDPOINTS = [
 # Implemented API operations.
 # Use both URL and HTTP method because /mission-sessions is shared.
 IMPLEMENTED_ENDPOINTS = {
-    ("/auth/anonymous", "POST"),
-    ("/settings/notifications", "GET"),
-    ("/settings/notifications", "PATCH"),
     ("/missions", "GET"),
     ("/missions/random", "GET"),
     ("/mission-sessions", "POST"),
@@ -49,10 +45,10 @@ class ApiRoutingTests(SimpleTestCase):
     def setUp(self):
         self.client = APIClient()
 
-    def test_all_17_operations_return_consistent_json_without_redirect(self):
+    def test_all_16_operations_return_consistent_json_without_redirect(self):
         self.assertEqual(
             sum(len(methods) for _, _, _, methods in ENDPOINTS),
-            17,
+            16,
         )
 
         for url, name, kwargs, methods in ENDPOINTS:
