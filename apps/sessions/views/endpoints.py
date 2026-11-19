@@ -1,10 +1,14 @@
 """Shared HTTP dispatch; business handlers belong to actions or history."""
 from rest_framework.views import APIView
 
+from apps.anonymous_auth.authentication import AnonymousBearerAuthentication
+
 from . import actions, history
 
 
 class SessionCollectionView(APIView):
+    authentication_classes = [AnonymousBearerAuthentication]
+
     def post(self, request):
         return actions.start(request)
 
@@ -16,10 +20,14 @@ class SessionCollectionView(APIView):
 
 
 class SessionCompleteView(APIView):
+    authentication_classes = [AnonymousBearerAuthentication]
+
     def post(self, request, sessionId):
         return actions.complete(request, sessionId)
 
 
 class SessionCancelView(APIView):
+    authentication_classes = [AnonymousBearerAuthentication]
+
     def post(self, request, sessionId):
         return actions.cancel(request, sessionId)
