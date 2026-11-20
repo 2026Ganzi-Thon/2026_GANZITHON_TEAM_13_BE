@@ -79,7 +79,7 @@ class PlaceRecommendationTests(SimpleTestCase):
             provider_response([provider_place(str(i), str(i * 50)) for i in range(7, 0, -1)]),
             provider_response([provider_place("1", "40"), provider_place("8", "600")]),
         ]
-        response = self.get()
+        response = self.get(missionId=11)
         self.assertEqual(response.status_code, 200)
         places = response.json()["places"]
         self.assertEqual([place["placeId"] for place in places], ["1", "2", "3", "4", "5"])
@@ -108,13 +108,21 @@ class PlaceRecommendationTests(SimpleTestCase):
         ]
         self.assertEqual([p["placeId"] for p in self.get().json()["places"]], ["1"])
 
-    def test_explicit_radius(self):
-        self.assertEqual(self.get(radius="1000").status_code, 200)
-        for call in self.urlopen.call_args_list:
-            self.assertEqual(parse_qs(urlsplit(call.args[0].full_url).query)["radius"], ["1000"])
+    def test_mission_search_passes_and_applies_each_supported_radius(self):
+        for radius in (500, 1000, 2000):
+            with self.subTest(radius=radius):
+                self.urlopen.side_effect = [provider_response([
+                    provider_place("1", str(radius)),
+                    provider_place("2", str(radius + 1)),
+                ])]
+                response = self.get(missionId=12, radius=radius)
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual([place["placeId"] for place in response.json()["places"]], ["1"])
+                params = parse_qs(urlsplit(self.urlopen.call_args.args[0].full_url).query)
+                self.assertEqual(params["radius"], [str(radius)])
 
     def test_missing_coordinates_are_invalid_before_external_call(self):
-        for parameters in ({}, {"latitude": "37.5"}, {"longitude": "127.0"}):
+        for parameters in ({}, {"latitude": "37.5"}, {"longitude": "127.0"}, {"missionId": 12}):
             with self.subTest(parameters=parameters):
                 self.assert_error(self.client.get(self.url, parameters), 400, "invalid_parameters")
         self.urlopen.assert_not_called()
@@ -144,11 +152,38 @@ class PlaceRecommendationTests(SimpleTestCase):
                 self.urlopen.side_effect = [provider_response([]), provider_response([])]
                 self.assertEqual(self.get(latitude=latitude, longitude=longitude, radius=radius).status_code, 200)
 
-    def test_mission_id_does_not_trigger_db_lookup_or_change_search(self):
-        # SimpleTestCase forbids ORM access, including accidental mission lookup.
-        self.assertEqual(self.get(missionId="unresolved-mission").json(), {"places": []})
-        for call in self.urlopen.call_args_list:
-            self.assertNotIn("missionId", parse_qs(urlsplit(call.args[0].full_url).query))
+    def test_supported_missions_select_their_keywords_without_a_db_lookup(self):
+        for mission_id, expected in (
+            (11, ["공원", "산책로"]), (12, ["편의점"]), (13, ["도서관"]),
+            (17, ["공원"]), (18, ["공원"]),
+        ):
+            with self.subTest(mission_id=mission_id):
+                self.urlopen.reset_mock()
+                self.urlopen.side_effect = [provider_response([]) for _ in expected]
+                response = self.get(missionId=mission_id)
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.json(), {"places": []})
+                queries = [parse_qs(urlsplit(call.args[0].full_url).query)
+                           for call in self.urlopen.call_args_list]
+                self.assertEqual([query["query"][0] for query in queries], expected)
+                self.assertTrue(all("missionId" not in query for query in queries))
+
+    def test_missions_without_search_return_an_empty_list_without_a_key(self):
+        with patch.dict(os.environ, {"KAKAO_REST_API_KEY": ""}):
+            for mission_id in (*range(1, 11), 14, 15, 16):
+                with self.subTest(mission_id=mission_id):
+                    response = self.get(missionId=mission_id)
+                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual(response.json(), {"places": []})
+        self.urlopen.assert_not_called()
+
+    def test_invalid_mission_ids_are_rejected_without_searching(self):
+        for mission_id in ("", "unresolved-mission", "11.5", "0", "-1", "19", [12, 13], [12, 12]):
+            with self.subTest(mission_id=mission_id):
+                response = self.get(missionId=mission_id)
+                self.assert_error(response, 400, "invalid_parameters")
+                self.assertIn("missionId", response.json()["detail"])
+        self.urlopen.assert_not_called()
 
     def test_missing_or_blank_key_is_configuration_error(self):
         for key in (None, "", "   "):
@@ -161,16 +196,18 @@ class PlaceRecommendationTests(SimpleTestCase):
         self.urlopen.assert_not_called()
 
     def test_timeouts(self):
-        for error in (TimeoutError(), URLError(TimeoutError())):
-            with self.subTest(error=error):
-                self.urlopen.side_effect = error
-                self.assert_error(self.get(), 504, "places_provider_timeout")
+        for parameters in ({}, {"missionId": 12}):
+            for error in (TimeoutError(), URLError(TimeoutError())):
+                with self.subTest(parameters=parameters, error=error):
+                    self.urlopen.side_effect = error
+                    self.assert_error(self.get(**parameters), 504, "places_provider_timeout")
 
     def test_provider_authentication_errors(self):
-        for status in (401, 403):
-            with self.subTest(status=status):
-                self.urlopen.side_effect = HTTPError("https://provider.invalid", status, "secret detail", {}, None)
-                self.assert_error(self.get(), 502, "places_provider_auth_error")
+        for parameters in ({}, {"missionId": 12}):
+            for status in (401, 403):
+                with self.subTest(parameters=parameters, status=status):
+                    self.urlopen.side_effect = HTTPError("https://provider.invalid", status, "secret detail", {}, None)
+                    self.assert_error(self.get(**parameters), 502, "places_provider_auth_error")
 
     def test_other_http_errors_do_not_expose_provider_body(self):
         for status in (400, 429, 500):
