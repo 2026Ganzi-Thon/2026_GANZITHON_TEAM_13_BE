@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 from rest_framework.test import APIClient
+from rest_framework_simplejwt.tokens import AccessToken
 
 from .models import NotificationSetting
 
@@ -26,7 +27,7 @@ class NotificationSettingTests(TestCase):
 
     def setUp(self):
         self.client = APIClient()
-        self.client.force_authenticate(user=self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {AccessToken.for_user(self.user)}")
         self.url = reverse("notifications:notification-settings")
 
     def patch_settings(self, payload):
@@ -67,7 +68,7 @@ class NotificationSettingTests(TestCase):
         self.assertEqual(response.json(), payload)
 
         another_client = APIClient()
-        another_client.force_authenticate(user=self.user)
+        another_client.credentials(HTTP_AUTHORIZATION=f"Bearer {AccessToken.for_user(self.user)}")
         response = another_client.get(self.url)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), payload)
