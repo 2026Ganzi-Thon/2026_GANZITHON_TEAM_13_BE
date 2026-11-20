@@ -6,6 +6,7 @@ from django.urls import Resolver404, URLResolver, get_resolver, resolve, reverse
 from rest_framework.response import Response
 from rest_framework.test import APIClient
 
+from types import SimpleNamespace
 
 # HTTP operations sharing a path must reach the same dispatcher.
 ENDPOINTS = [
@@ -44,6 +45,15 @@ class ApiRoutingTests(SimpleTestCase):
     # No test database is created; database queries are prohibited.
     def setUp(self):
         self.client = APIClient()
+
+        self.test_user = SimpleNamespace(
+            id=1,
+            is_authenticated=True,
+        )
+
+        self.client.force_authenticate(
+            user=self.test_user
+        )
 
     def test_all_16_operations_return_consistent_json_without_redirect(self):
         self.assertEqual(

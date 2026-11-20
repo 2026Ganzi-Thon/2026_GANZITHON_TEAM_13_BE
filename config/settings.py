@@ -5,6 +5,8 @@ from pathlib import Path
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
+from datetime import timedelta
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
@@ -21,6 +23,8 @@ ALLOWED_HOSTS = [
 
 INSTALLED_APPS = [
     "rest_framework",
+    "corsheaders",
+    "apps.authentication.apps.AuthenticationConfig",
     "health.apps.HealthConfig",
     "apps.missions.apps.MissionsConfig",
     "apps.sessions.apps.SessionsConfig",
@@ -32,6 +36,7 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
 ]
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -55,11 +60,26 @@ DATABASES = {
 }
 
 REST_FRAMEWORK = {
-    "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
-    "DEFAULT_AUTHENTICATION_CLASSES": [],
-    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.AllowAny"],
-    "UNAUTHENTICATED_USER": None,
+    "DEFAULT_RENDERER_CLASSES": [
+        "rest_framework.renderers.JSONRenderer",
+    ],
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.AllowAny",
+    ],
 }
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=90),
+}
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 
 LANGUAGE_CODE = "ko-kr"
 TIME_ZONE = "Asia/Seoul"
