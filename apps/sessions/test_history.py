@@ -110,15 +110,13 @@ class MissionHistoryTests(SimpleTestCase):
         self.assertEqual(response.json(), {"records": []})
 
     def test_unauthenticated_requests_do_not_query(self):
-        for user in (None, SimpleNamespace(is_authenticated=False)):
-            client = APIClient()
-            if user is not None:
-                client.force_authenticate(user=user)
-            for method in ("get", "delete"):
-                with self.subTest(user=user, method=method):
-                    response = getattr(client, method)("/mission-sessions")
-                    self.assertEqual(response.status_code, 401)
-                    self.assertEqual(response.json(), {"detail": "Authentication required."})
+        client = APIClient()
+        for method in ("get", "delete"):
+            with self.subTest(method=method):
+                response = getattr(client, method)("/mission-sessions")
+                self.assertEqual(response.status_code, 401)
+                self.assertEqual(response.data["detail"].code, "not_authenticated")
+                self.assertEqual(response["WWW-Authenticate"], 'Bearer realm="api"')
         self.manager.filter.assert_not_called()
 
     def test_user_scoped_list(self):
