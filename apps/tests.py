@@ -33,6 +33,7 @@ IMPLEMENTED_ENDPOINTS = {
     ("/rest/breathing", "GET"),
     ("/rest/records", "POST"),
     ("/rest/records/today", "GET"),
+    ("/places/recommendations", "GET"),
     ("/missions", "GET"),
     ("/missions/random", "GET"),
     ("/mission-sessions", "POST"),
